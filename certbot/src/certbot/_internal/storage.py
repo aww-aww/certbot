@@ -1,7 +1,6 @@
 """Renewable certificates storage."""
 # pylint: disable=too-many-lines
 import datetime
-import glob
 import logging
 import re
 import shutil
@@ -55,9 +54,16 @@ def renewal_conf_files(config: configuration.NamespaceConfig) -> list[str]:
     :rtype: `list` of `str`
 
     """
-    result = glob.glob(os.path.join(config.renewal_configs_dir, "*.conf"))
-    result.sort()
-    return result
+    try:
+        with os.scandir(config.renewal_configs_dir) as it:
+            result = []
+            for entry in it:
+                if entry.name.endswith(".conf") and entry.is_file():
+                    result.append(entry.path)
+            result.sort()
+            return result
+    except (FileNotFoundError, NotADirectoryError):
+        return []
 
 
 def renewal_file_for_certname(config: configuration.NamespaceConfig, certname: str) -> str:
