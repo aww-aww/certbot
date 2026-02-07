@@ -143,7 +143,7 @@ class SetupLogFileHandlerTest(test_util.ConfigTestCase):
         super().setUp()
         self.config.max_log_backups = 42
 
-    @mock.patch('certbot._internal.main.logging.handlers.RotatingFileHandler')
+    @mock.patch('certbot._internal.log.RestrictedRotatingFileHandler')
     def test_failure(self, mock_handler):
         mock_handler.side_effect = IOError
 
@@ -175,11 +175,17 @@ class SetupLogFileHandlerTest(test_util.ConfigTestCase):
         backup_path = os.path.join(self.config.logs_dir, log_file + '.1')
         assert os.path.exists(backup_path) == should_rollover
 
-    @mock.patch('certbot._internal.log.logging.handlers.RotatingFileHandler')
+    @mock.patch('certbot._internal.log.RestrictedRotatingFileHandler')
     def test_max_log_backups_used(self, mock_handler):
         self._call(self.config, 'test.log', '%(message)s')
         backup_count = mock_handler.call_args[1]['backupCount']
         assert self.config.max_log_backups == backup_count
+
+    def test_permissions(self):
+        log_file = 'test.log'
+        handler, log_path = self._call(self.config, log_file, '%(message)s')
+        handler.close()
+        assert filesystem.check_permissions(log_path, 0o600)
 
 
 class ColoredStreamHandlerTest(unittest.TestCase):

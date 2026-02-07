@@ -40,6 +40,7 @@ from certbot import errors
 from certbot import util
 from certbot._internal import constants
 from certbot._internal.display import util as display_util
+from certbot.compat import filesystem
 from certbot.compat import os
 
 # Logging format
@@ -145,6 +146,14 @@ def post_arg_parse_setup(config: configuration.NamespaceConfig) -> None:
         debug=config.debug, quiet=config.quiet, log_path=file_path)
 
 
+class RestrictedRotatingFileHandler(logging.handlers.RotatingFileHandler):
+    """A RotatingFileHandler that creates files with 0600 permissions."""
+    def _open(self) -> IO:
+        stream = super()._open()
+        filesystem.chmod(self.baseFilename, 0o600)
+        return stream
+
+
 def setup_log_file_handler(config: configuration.NamespaceConfig, logfile: str,
                            fmt: str) -> tuple[logging.Handler, str]:
     """Setup file debug logging.
@@ -162,7 +171,7 @@ def setup_log_file_handler(config: configuration.NamespaceConfig, logfile: str,
     util.set_up_core_dir(config.logs_dir, 0o700, config.strict_permissions)
     log_file_path = os.path.join(config.logs_dir, logfile)
     try:
-        handler = logging.handlers.RotatingFileHandler(
+        handler = RestrictedRotatingFileHandler(
             log_file_path, maxBytes=2 ** 20,
             backupCount=config.max_log_backups)
     except OSError as error:
